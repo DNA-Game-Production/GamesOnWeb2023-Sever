@@ -34,6 +34,7 @@ type PeerMap = Arc<Mutex<HashMap<SocketAddr, Tx>>>;
 
 type SharedMessages = Arc<Mutex<Vec<Message>>>;
 type UserList = Arc<Mutex<Vec<Message>>>;
+type PositionUpdates = Arc<Mutex<HashMap<String, String>>>;
 
 async fn handle_connection(
     peer_map: PeerMap,
@@ -41,6 +42,7 @@ async fn handle_connection(
     addr: SocketAddr,
     shared_messages: SharedMessages,
     user_list: UserList,
+    position_list: PositionUpdates,
 ) {
     println!("Incoming TCP connection from: {}", addr);
 
@@ -100,6 +102,13 @@ async fn handle_connection(
                             shared_messages.lock().unwrap().push(msg.clone());
                             println!("messageStack updated: {:?}", shared_messages);
                         }
+                        "position" => {
+                            position_list
+                                .lock()
+                                .unwrap()
+                                .insert(username.clone(), msg.clone().to_string());
+                            println!("position list updated: {:?}", position_list);
+                        }
                         //keep alive route, does nothing
                         "keepalive" => {}
                         //invalid route not matching any of the previous patterns
@@ -142,9 +151,14 @@ async fn handle_connection(
 }
 
 //Function in charge of broadcasting every second
-async fn broadcast(peer_map: PeerMap, shared_messages: SharedMessages, user_list: UserList) {
+async fn broadcast(
+    peer_map: PeerMap,
+    shared_messages: SharedMessages,
+    user_list: UserList,
+    position_list: PositionUpdates,
+) {
     loop {
-        sleep(Duration::from_millis(1000)).await;
+        sleep(Duration::from_millis(100)).await;
         let peers = peer_map.lock().unwrap();
         let mut messages = shared_messages.lock().unwrap();
         let users = user_list.lock().unwrap();
@@ -160,28 +174,48 @@ async fn broadcast(peer_map: PeerMap, shared_messages: SharedMessages, user_list
         let mut user_number = 0;
 
         for recp in broadcast_recipients {
+            //count the number of clients the server is broadcasting to
             user_number += 1;
+
+            //send every message in the message stack to the client
             for msg in message_list.clone() {
                 recp.unbounded_send(msg.clone()).unwrap();
             }
+
+            //Construct the user list message to send
+            let mut user_list_size = 0;
             let mut user_list_message = String::from(r#" {"route":"userlist", "content":" "#);
             for user in user_iterator.clone() {
+                user_list_size += 1;
                 user_list_message.push_str(user.to_text().unwrap());
                 user_list_message.push_str(", ");
             }
             user_list_message.pop();
             user_list_message.pop();
             user_list_message.push_str("\"}");
-            recp.unbounded_send(Message::from(user_list_message))
-                .unwrap();
+
+            //send the user list to the client unless there are no user (ABNORMAL CASE)
+            if user_list_size != 0 {
+                recp.unbounded_send(Message::from(user_list_message))
+                    .unwrap();
+            }
+
+            //TODO iter on the position hashmap and send it to the client
+            let position_map = position_list.lock().unwrap();
+            for (_, value) in &*position_map {
+                recp.unbounded_send(Message::from(value.clone())).unwrap();
+            }
         }
 
+        //empty the message stack
         messages.clear();
-        println!(
-            "finished broadcasting ({}s) to {} users",
-            Utc::now().second(),
-            user_number
-        );
+
+        //print boradcast
+        // println!(
+        //     "finished broadcasting ({}s) to {} users",
+        //     Utc::now().second(),
+        //     user_number
+        // );
     }
 }
 
@@ -210,6 +244,7 @@ async fn main() -> Result<(), IoError> {
     let state = PeerMap::new(Mutex::new(HashMap::new()));
     let message_stack = SharedMessages::new(Mutex::new(Vec::new()));
     let users = UserList::new(Mutex::new(Vec::new()));
+    let positions = PositionUpdates::new(Mutex::new(HashMap::new()));
 
     // Create the event loop and TCP listener we'll accept connections on.
     let try_socket = TcpListener::bind(&addr).await;
@@ -221,6 +256,7 @@ async fn main() -> Result<(), IoError> {
         state.clone(),
         message_stack.clone(),
         users.clone(),
+        positions.clone(),
     ));
 
     // Let's spawn the handling of each connection in a separate task.
@@ -231,6 +267,7 @@ async fn main() -> Result<(), IoError> {
             addr,
             message_stack.clone(),
             users.clone(),
+            positions.clone(),
         ));
     }
 
