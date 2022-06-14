@@ -18,9 +18,9 @@
 
     <script type="text/javascript">
         //RUNNING SERVER ON HEROKU FOR DEPLOYMENT
-        var ws = new WebSocket("ws://127.0.0.1:8080");
-        //RUNNING SERVER ON LOCAL FOR DEV
         //var ws = new WebSocket("ws://127.0.0.1:8080");
+        //RUNNING SERVER ON LOCAL FOR DEV
+        var ws = new WebSocket("ws://babylongameserver.herokuapp.com/");
 
         var username = prompt("Enter your username: ");
         if (username == null || username == "") {
@@ -43,7 +43,7 @@
             if (keepvalue) document.getElementById("msg").value = inputFieldValue;
         }
 
-        focusMethod()
+        //focusMethod()
 
         ws.addEventListener('message', function (event) {
             inputFieldValue = document.getElementById("msg").value;
