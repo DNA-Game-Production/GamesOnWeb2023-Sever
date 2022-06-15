@@ -109,19 +109,26 @@ async fn handle_connection(
                                         .contains_key(&String::from(string))
                                     {
                                         username = String::from(generate_random_string());
+                                        //send to the client his new username
+                                        let username_message = format!(
+                                            r#" {{"route": "usernameSetter", "content": "{}"}} "#,
+                                            username
+                                        );
+                                        tx.unbounded_send(Message::from(username_message)).unwrap();
                                     } else {
                                         username = String::from(string);
                                     }
                                 }
-                                None => username = String::from(generate_random_string()),
+                                None => {
+                                    username = String::from(generate_random_string());
+                                    //send to the client his new username
+                                    let username_message = format!(
+                                        r#" {{"route": "usernameSetter", "content": "{}"}} "#,
+                                        username
+                                    );
+                                    tx.unbounded_send(Message::from(username_message)).unwrap();
+                                }
                             };
-
-                            //send to the client his username
-                            let username_message = format!(
-                                r#" {{"route": "usernameSetter", "content": "{}"}} "#,
-                                username
-                            );
-                            tx.unbounded_send(Message::from(username_message)).unwrap();
 
                             // user_list
                             //     .lock()
@@ -196,7 +203,7 @@ async fn broadcast(
     position_list: PositionUpdates,
 ) {
     loop {
-        sleep(Duration::from_millis(100)).await;
+        sleep(Duration::from_millis(50)).await;
         let peers = peer_map.lock().unwrap();
         let mut messages = shared_messages.lock().unwrap();
         // let users = user_list.lock().unwrap();
