@@ -146,8 +146,11 @@ async fn handle_connection(
         locked_user_list.swap_remove(index);
     }
 
-    //remove the user from the lsit of connections
+    //remove the user from the list of connections
     peer_map.lock().unwrap().remove(&addr);
+
+    //remove the user from the position Hashmap
+    position_list.lock().unwrap().remove(&username);
 }
 
 //Function in charge of broadcasting every second
