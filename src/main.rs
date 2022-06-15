@@ -6,7 +6,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use chrono::{prelude::Utc, Timelike};
+//use chrono::{prelude::Utc, Timelike};
 
 use futures_channel::mpsc::{unbounded, UnboundedSender};
 use futures_util::{future, pin_mut, stream::TryStreamExt, StreamExt};
@@ -21,6 +21,7 @@ use tungstenite::protocol::Message;
 use serde_json;
 
 use rand::seq::SliceRandom;
+use rand::{distributions::Alphanumeric, Rng};
 
 type Tx = UnboundedSender<Message>;
 type PeerMap = Arc<Mutex<HashMap<SocketAddr, Tx>>>;
@@ -33,15 +34,23 @@ type PeerMap = Arc<Mutex<HashMap<SocketAddr, Tx>>>;
 // }
 
 type SharedMessages = Arc<Mutex<Vec<Message>>>;
-type UserList = Arc<Mutex<Vec<Message>>>;
+// type UserList = Arc<Mutex<Vec<Message>>>;
 type PositionUpdates = Arc<Mutex<HashMap<String, String>>>;
+
+fn generate_random_string() -> String {
+    rand::thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(12)
+        .map(char::from)
+        .collect()
+}
 
 async fn handle_connection(
     peer_map: PeerMap,
     raw_stream: TcpStream,
     addr: SocketAddr,
     shared_messages: SharedMessages,
-    user_list: UserList,
+    // user_list: UserList,
     position_list: PositionUpdates,
 ) {
     println!("Incoming TCP connection from: {}", addr);
@@ -53,7 +62,7 @@ async fn handle_connection(
 
     // Insert the write part of this peer to the peer map.
     let (tx, rx) = unbounded();
-    peer_map.lock().unwrap().insert(addr, tx);
+    peer_map.lock().unwrap().insert(addr, tx.clone());
 
     let (outgoing, incoming) = ws_stream.split();
 
@@ -91,15 +100,41 @@ async fn handle_connection(
                             println!("messageStack updated: {:?}", shared_messages);
                         }
                         "login" => {
-                            let json_content = json["content"]
-                                .as_str()
-                                .expect("username received is not a string");
-                            username = json_content.to_string();
-                            user_list
+                            //set the username value
+                            match json["content"].as_str() {
+                                Some(string) => {
+                                    if position_list
+                                        .lock()
+                                        .unwrap()
+                                        .contains_key(&String::from(string))
+                                    {
+                                        username = String::from(generate_random_string());
+                                    } else {
+                                        username = String::from(string);
+                                    }
+                                }
+                                None => username = String::from(generate_random_string()),
+                            };
+
+                            //send to the client his username
+                            let username_message = format!(
+                                r#" {{"route": "usernameSetter", "content": "{}"}} "#,
+                                username
+                            );
+                            tx.unbounded_send(Message::from(username_message)).unwrap();
+
+                            // user_list
+                            //     .lock()
+                            //     .unwrap()
+                            //     .push(Message::Text(username.clone()));
+
+                            let login_message =
+                                format!(r#" {{"route": "login", "content": "{}"}} "#, username);
+
+                            shared_messages
                                 .lock()
                                 .unwrap()
-                                .push(Message::Text(username.clone()));
-                            shared_messages.lock().unwrap().push(msg.clone());
+                                .push(Message::from(login_message));
                             println!("messageStack updated: {:?}", shared_messages);
                         }
                         "position" => {
@@ -138,13 +173,13 @@ async fn handle_connection(
         .push(Message::Text(logout_message.to_string()));
 
     //remove the user from the current user list
-    let mut locked_user_list = user_list.lock().unwrap();
-    if let Some(index) = locked_user_list
-        .iter()
-        .position(|value| *value.to_string() == username)
-    {
-        locked_user_list.swap_remove(index);
-    }
+    // let mut locked_user_list = user_list.lock().unwrap();
+    // if let Some(index) = locked_user_list
+    //     .iter()
+    //     .position(|value| *value.to_string() == username)
+    // {
+    //     locked_user_list.swap_remove(index);
+    // }
 
     //remove the user from the list of connections
     peer_map.lock().unwrap().remove(&addr);
@@ -157,14 +192,14 @@ async fn handle_connection(
 async fn broadcast(
     peer_map: PeerMap,
     shared_messages: SharedMessages,
-    user_list: UserList,
+    // user_list: UserList,
     position_list: PositionUpdates,
 ) {
     loop {
         sleep(Duration::from_millis(100)).await;
         let peers = peer_map.lock().unwrap();
         let mut messages = shared_messages.lock().unwrap();
-        let users = user_list.lock().unwrap();
+        // let users = user_list.lock().unwrap();
 
         let broadcast_recipients = peers
             .iter()
@@ -172,13 +207,13 @@ async fn broadcast(
             .map(|(_, ws_sink)| ws_sink);
 
         let message_list = messages.iter();
-        let user_iterator = users.iter();
+        // let user_iterator = users.iter();
 
-        let mut user_number = 0;
+        //let mut user_number = 0;
 
         for recp in broadcast_recipients {
             //count the number of clients the server is broadcasting to
-            user_number += 1;
+            //user_number += 1;
 
             //send every message in the message stack to the client
             for msg in message_list.clone() {
@@ -186,22 +221,22 @@ async fn broadcast(
             }
 
             //Construct the user list message to send
-            let mut user_list_size = 0;
-            let mut user_list_message = String::from(r#" {"route":"userlist", "content":" "#);
-            for user in user_iterator.clone() {
-                user_list_size += 1;
-                user_list_message.push_str(user.to_text().unwrap());
-                user_list_message.push_str(", ");
-            }
-            user_list_message.pop();
-            user_list_message.pop();
-            user_list_message.push_str("\"}");
+            // let mut user_list_size = 0;
+            // let mut user_list_message = String::from(r#" {"route":"userlist", "content":" "#);
+            // for user in user_iterator.clone() {
+            //     user_list_size += 1;
+            //     user_list_message.push_str(user.to_text().unwrap());
+            //     user_list_message.push_str(", ");
+            // }
+            // user_list_message.pop();
+            // user_list_message.pop();
+            // user_list_message.push_str("\"}");
 
             //send the user list to the client unless there are no user (ABNORMAL CASE)
-            if user_list_size != 0 {
-                recp.unbounded_send(Message::from(user_list_message))
-                    .unwrap();
-            }
+            // if user_list_size != 0 {
+            //     recp.unbounded_send(Message::from(user_list_message))
+            //         .unwrap();
+            // }
 
             //TODO iter on the position hashmap and send it to the client
             let position_map = position_list.lock().unwrap();
@@ -212,6 +247,8 @@ async fn broadcast(
 
         //empty the message stack
         messages.clear();
+
+        //println!("BROADCAST DONE");
 
         //print boradcast
         // println!(
@@ -246,7 +283,7 @@ async fn main() -> Result<(), IoError> {
 
     let state = PeerMap::new(Mutex::new(HashMap::new()));
     let message_stack = SharedMessages::new(Mutex::new(Vec::new()));
-    let users = UserList::new(Mutex::new(Vec::new()));
+    // let users = UserList::new(Mutex::new(Vec::new()));
     let positions = PositionUpdates::new(Mutex::new(HashMap::new()));
 
     // Create the event loop and TCP listener we'll accept connections on.
@@ -258,7 +295,7 @@ async fn main() -> Result<(), IoError> {
     tokio::spawn(broadcast(
         state.clone(),
         message_stack.clone(),
-        users.clone(),
+        // users.clone(),
         positions.clone(),
     ));
 
@@ -269,7 +306,7 @@ async fn main() -> Result<(), IoError> {
             stream,
             addr,
             message_stack.clone(),
-            users.clone(),
+            // users.clone(),
             positions.clone(),
         ));
     }
