@@ -97,7 +97,9 @@ async fn handle_connection(
                                 .lock()
                                 .unwrap()
                                 .push(Message::Text(return_message));
-                            println!("messageStack updated: {:?}", shared_messages);
+                        }
+                        "fireBullet" => {
+                            shared_messages.lock().unwrap().push(msg.clone());
                         }
                         "login" => {
                             //set the username value
@@ -142,14 +144,12 @@ async fn handle_connection(
                                 .lock()
                                 .unwrap()
                                 .push(Message::from(login_message));
-                            println!("messageStack updated: {:?}", shared_messages);
                         }
                         "position" => {
                             position_list
                                 .lock()
                                 .unwrap()
                                 .insert(username.clone(), msg.clone().to_string());
-                            println!("position list updated: {:?}", position_list);
                         }
                         //keep alive route, does nothing
                         "keepalive" => {}
@@ -214,36 +214,12 @@ async fn broadcast(
             .map(|(_, ws_sink)| ws_sink);
 
         let message_list = messages.iter();
-        // let user_iterator = users.iter();
-
-        //let mut user_number = 0;
 
         for recp in broadcast_recipients {
-            //count the number of clients the server is broadcasting to
-            //user_number += 1;
-
             //send every message in the message stack to the client
             for msg in message_list.clone() {
                 recp.unbounded_send(msg.clone()).unwrap();
             }
-
-            //Construct the user list message to send
-            // let mut user_list_size = 0;
-            // let mut user_list_message = String::from(r#" {"route":"userlist", "content":" "#);
-            // for user in user_iterator.clone() {
-            //     user_list_size += 1;
-            //     user_list_message.push_str(user.to_text().unwrap());
-            //     user_list_message.push_str(", ");
-            // }
-            // user_list_message.pop();
-            // user_list_message.pop();
-            // user_list_message.push_str("\"}");
-
-            //send the user list to the client unless there are no user (ABNORMAL CASE)
-            // if user_list_size != 0 {
-            //     recp.unbounded_send(Message::from(user_list_message))
-            //         .unwrap();
-            // }
 
             //TODO iter on the position hashmap and send it to the client
             let position_map = position_list.lock().unwrap();
