@@ -110,6 +110,7 @@ async fn handle_connection(
                                         .unwrap()
                                         .contains_key(&String::from(string))
                                     {
+                                        println!("username already taken, sending a new one");
                                         username = String::from(generate_random_string());
                                         //send to the client his new username
                                         let username_message = format!(
@@ -172,7 +173,7 @@ async fn handle_connection(
 
     println!("{} disconnected", &addr);
 
-    //send a message in the chat to leet chaters know this user was disconnected
+    //send a message in the chat to let chaters know this user was disconnected
     let logout_message = format!(r#" {{"route": "logout", "content": "{}"}} "#, username);
     shared_messages
         .lock()
@@ -203,7 +204,7 @@ async fn broadcast(
     position_list: PositionUpdates,
 ) {
     loop {
-        sleep(Duration::from_millis(30)).await;
+        sleep(Duration::from_millis(50)).await;
         let peers = peer_map.lock().unwrap();
         let mut messages = shared_messages.lock().unwrap();
         // let users = user_list.lock().unwrap();
