@@ -203,7 +203,7 @@ async fn broadcast(
     position_list: PositionUpdates,
 ) {
     loop {
-        sleep(Duration::from_millis(50)).await;
+        sleep(Duration::from_millis(30)).await;
         let peers = peer_map.lock().unwrap();
         let mut messages = shared_messages.lock().unwrap();
         // let users = user_list.lock().unwrap();
