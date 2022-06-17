@@ -16,6 +16,7 @@ type SharedMessages = Arc<Mutex<Vec<Message>>>;
 type PositionUpdates = Arc<Mutex<HashMap<String, String>>>;
 
 pub mod broadcast;
+pub mod game_events;
 pub mod handle_connection;
 pub mod utils;
 
@@ -40,6 +41,8 @@ async fn main() -> Result<(), IoError> {
         // users.clone(),
         positions.clone(),
     ));
+
+    tokio::spawn(game_events::game_events(state.clone()));
 
     // spawn the handling of each connection in a separate task.
     while let Ok((stream, addr)) = listener.accept().await {
