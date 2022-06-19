@@ -29,7 +29,20 @@ pub async fn game_events(peer_map: PeerMap, monster_list: MonsterList) {
                 30,
                 monster_list.clone(),
                 &mut zombie_counter,
-            )
+            );
+
+            monster_spawner(
+                5.0,
+                1.0,
+                5.0,
+                String::from("zombie"),
+                String::from(
+                    r#" {\"_isDirty\":true,\"_x\":0.23749832808971405,\"_y\":0,\"_z\":0.9713879227638245} "#,
+                ),
+                30,
+                monster_list.clone(),
+                &mut zombie_counter,
+            );
         }
 
         let mut monster_list = monster_list.lock().unwrap();
