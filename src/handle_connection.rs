@@ -3,11 +3,18 @@ use std::{collections::HashMap, net::SocketAddr};
 use futures_channel::mpsc::unbounded;
 use futures_util::{future, pin_mut, stream::TryStreamExt, StreamExt};
 use rand::seq::SliceRandom;
-use serde_json;
+use serde::Deserialize;
+use serde_json::{self};
 use tokio::net::TcpStream;
 use tungstenite::protocol::Message;
 
-use crate::{utils, PeerMap, PositionUpdates, SharedMessages};
+use crate::{utils, MonsterList, PeerMap, PositionUpdates, SharedMessages};
+
+#[derive(Deserialize, Debug)]
+struct DamageData {
+    username: String,
+    damage: i16,
+}
 
 pub async fn handle_connection(
     peer_map: PeerMap,
@@ -15,6 +22,7 @@ pub async fn handle_connection(
     addr: SocketAddr,
     shared_messages: SharedMessages,
     position_list: PositionUpdates,
+    monster_list: MonsterList,
 ) {
     println!("Incoming TCP connection from: {}", addr);
 
@@ -109,6 +117,34 @@ pub async fn handle_connection(
                                 .lock()
                                 .unwrap()
                                 .insert(username.clone(), msg.clone().to_string());
+                        }
+                        "damage_monster" => {
+                            let damage_data: DamageData =
+                                serde_json::from_str(json["content"].as_str().unwrap()).unwrap();
+                            println!("{:?}", damage_data);
+                            let mut monster_list = monster_list.lock().unwrap();
+                            let new_data = monster_list.get_mut(&damage_data.username);
+                            match new_data {
+                                Some(new_data) => {
+                                    new_data.health -= damage_data.damage;
+
+                                    if new_data.health <= 0 {
+                                        new_data.health = 0;
+                                        let kill_monster_message = format!(
+                                            r#" {{"route": "kill_monster", "content": "{}"}} "#,
+                                            new_data.username
+                                        );
+                                        shared_messages
+                                            .lock()
+                                            .unwrap()
+                                            .push(Message::from(kill_monster_message));
+                                        monster_list.remove(&damage_data.username);
+                                    }
+                                }
+                                None => {
+                                    println!("ERROR: TRIED TO DAMAGE A ZOMBIE THAT DOES NOT EXIST");
+                                }
+                            }
                         }
                         //keep alive route, does nothing
                         "keepalive" => {}
