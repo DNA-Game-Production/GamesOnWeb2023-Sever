@@ -5,6 +5,7 @@ use crate::{MonsterData, MonsterList, PeerMap};
 
 pub async fn game_events(peer_map: PeerMap, monster_list: MonsterList) {
     let mut hour = 16.0;
+    let mut zombie_counter = 0;
 
     loop {
         sleep(Duration::from_millis(1000)).await;
@@ -27,6 +28,7 @@ pub async fn game_events(peer_map: PeerMap, monster_list: MonsterList) {
                 ),
                 30,
                 monster_list.clone(),
+                &mut zombie_counter,
             )
         }
 
@@ -35,6 +37,7 @@ pub async fn game_events(peer_map: PeerMap, monster_list: MonsterList) {
         //clear monsters at end of night
         if hour == 7.0 {
             monster_list.clear();
+            zombie_counter = 0;
         }
 
         let peers = peer_map.lock().unwrap();
@@ -75,13 +78,14 @@ fn monster_spawner(
     direction: String,
     health: i16,
     monster_list: MonsterList,
+    counter: &mut i32,
 ) {
     //create monster's data
     let monster_data = MonsterData {
         pos_x,
         pos_y,
         pos_z,
-        username,  //String::from("zombie"),
+        username: format!("{}{}", username, counter), //String::from("zombie"),
         direction, // String::from(r#" {\"_isDirty\":true,\"_x\":0.23749832808971405,\"_y\":0,\"_z\":0.9713879227638245} "#,),
         health,
     };
@@ -89,4 +93,5 @@ fn monster_spawner(
     //push it into the monster list
     let mut monster_list = monster_list.lock().unwrap();
     monster_list.insert(monster_data.username.clone(), monster_data);
+    *counter += 1;
 }
