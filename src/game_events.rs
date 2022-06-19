@@ -69,12 +69,13 @@ pub async fn game_events(peer_map: PeerMap, monster_list: MonsterList) {
             if hour > 22.0 || hour < 7.0 {
                 for monster in monster_list.values() {
                     let new_monster_message = format!(
-                        r#" {{"route": "monster_data", "content": "{{\"pos_x\": {}, \"pos_y\": {}, \"pos_z\": {}, \"username\": \"{}\", \"health\": \"{}\", \"direction\": {}}}"}} "#,
+                        r#" {{"route": "monster_data", "content": "{{\"pos_x\": {}, \"pos_y\": {}, \"pos_z\": {}, \"username\": \"{}\", \"health\": \"{}\", \"maxHealth\": \"{}\", \"direction\": {}}}"}} "#,
                         monster.pos_x,
                         monster.pos_y,
                         monster.pos_z,
                         monster.username,
                         monster.health,
+                        monster.max_health,
                         monster.direction
                     );
                     recp.unbounded_send(Message::from(new_monster_message))
@@ -103,7 +104,7 @@ fn monster_spawner(
         username: format!("{}{}", username, counter), //String::from("zombie"),
         direction, // String::from(r#" {\"_isDirty\":true,\"_x\":0.23749832808971405,\"_y\":0,\"_z\":0.9713879227638245} "#,),
         health,
-        maxHealth: health,
+        max_health: health.clone(),
     };
 
     //push it into the monster list
