@@ -8,13 +8,14 @@ pub async fn game_events(peer_map: PeerMap, monster_list: MonsterList) {
     let mut zombie_counter = 0;
 
     loop {
-        sleep(Duration::from_millis(1000)).await;
+        sleep(Duration::from_millis(500)).await;
 
         hour += 0.25;
         if hour >= 24.0 {
             hour = 0.0;
         }
         println!("hour: {}", hour);
+        let health = 100;
 
         //Spawn monsters
         if hour == 22.0 {
@@ -26,7 +27,7 @@ pub async fn game_events(peer_map: PeerMap, monster_list: MonsterList) {
                 String::from(
                     r#" {\"_isDirty\":true,\"_x\":0.23749832808971405,\"_y\":0,\"_z\":0.9713879227638245} "#,
                 ),
-                30,
+                health,
                 monster_list.clone(),
                 &mut zombie_counter,
             );
@@ -39,7 +40,7 @@ pub async fn game_events(peer_map: PeerMap, monster_list: MonsterList) {
                 String::from(
                     r#" {\"_isDirty\":true,\"_x\":0.23749832808971405,\"_y\":0,\"_z\":0.9713879227638245} "#,
                 ),
-                30,
+                health,
                 monster_list.clone(),
                 &mut zombie_counter,
             );
