@@ -19,6 +19,7 @@ pub struct MonsterData {
     username: String,
     direction: String,
     health: i16,
+    maxHealth: i16,
 }
 
 //pub type MonsterList = Arc<Mutex<Vec<MonsterData>>>;

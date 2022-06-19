@@ -10,6 +10,7 @@ pub async fn game_events(peer_map: PeerMap, monster_list: MonsterList) {
     loop {
         sleep(Duration::from_millis(500)).await;
 
+        //update server hour
         hour += 0.25;
         if hour >= 24.0 {
             hour = 0.0;
@@ -17,7 +18,7 @@ pub async fn game_events(peer_map: PeerMap, monster_list: MonsterList) {
         println!("hour: {}", hour);
         let health = 100;
 
-        //Spawn monsters
+        //Spawn monsters at night start
         if hour == 22.0 {
             monster_spawner(
                 0.0,
@@ -102,6 +103,7 @@ fn monster_spawner(
         username: format!("{}{}", username, counter), //String::from("zombie"),
         direction, // String::from(r#" {\"_isDirty\":true,\"_x\":0.23749832808971405,\"_y\":0,\"_z\":0.9713879227638245} "#,),
         health,
+        maxHealth: health,
     };
 
     //push it into the monster list
